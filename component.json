@@ -1,0 +1,20 @@
+{
+  "name": "ssmAngular",
+  "repo": "Mooser/ssmAngular",
+  "description": "A scene state manager for angular projects.",
+  "version": "0.0.1",
+  "keywords": [],
+  "dependencies": {},
+  "development": {},
+  "license": "MIT",
+  "main": "ssmAngular.js",
+  "scripts": [
+    "ssmAngular.js",
+	"ssmProvider.js",
+	"ssmRouteProvider.js",
+    "template.js"
+  ],
+  "styles": [
+    "ssmAngular.css"
+  ]
+}
