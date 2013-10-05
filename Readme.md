@@ -1,7 +1,6 @@
-
 # ssmAngular
 
-  A scene state manager for angular projects.
+  A scene state manager for angular projects.  Conceived, designed, and authored by Justin Mooser.  
 
 ## Installation
 
