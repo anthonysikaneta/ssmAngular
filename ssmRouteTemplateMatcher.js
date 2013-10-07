@@ -1,8 +1,4 @@
-﻿(function (document, undefined) {
-    angular.module('ssmAngular')
-        .provider('ssmRouteTemplateMatcher', ssmRouteTemplateMatcherProvider);
-
-    function ssmRouteTemplateMatcherProvider() {
+﻿    function ssmRouteTemplateMatcherProvider() {
         var routeTemplates = {};
         var compiledRouteTemplates = {};
         var templateElementParsers = {};
@@ -182,4 +178,3 @@
             return chunks;
         }
     }
-})(window.document);

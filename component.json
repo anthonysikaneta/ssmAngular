@@ -7,11 +7,9 @@
   "dependencies": {},
   "development": {},
   "license": "MIT",
-  "main": "ssmAngular.js",
+  "main": "index.js",
   "scripts": [
-    "ssmAngular.js",
-	"ssmProvider.js",
-	"ssmRouteProvider.js",
+    "index.js",
     "template.js"
   ],
   "styles": [
