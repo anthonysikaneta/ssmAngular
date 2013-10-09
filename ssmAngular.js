@@ -13,16 +13,42 @@
                 },
             };
         }])
-        .directive('ssmViewport', ['$compile', 'ssmLayoutMan', function ($compile, layoutManager) {
+        .directive('ssmViewport', ['$compile', 'ssmLayoutMan', '$log', '$controller', function ($compile, layoutManager, $log, $controller) {
             return {
                 restrict: 'AE',
                 link: function (scope, element, attrs) {
-                    console.log('attr visualPriority: ' + attrs.visualPriority);
-                    layoutManager.viewPorts[parseInt(attrs.visualPriority, 10)] = {
-                        destroy: function () { },
+                    var vp = parseInt(attrs.visualPriority, 10),
+                        lastScope; 
+                    $log.log('attr visualPriority: ' + vp);
+
+                    function destroyLastScope() {
+                        if (lastScope) {
+                            lastScope.$destroy();
+                            lastScope = null;
+                        }
+                    }
+
+                    function clearContent() {
+                        element.html('');
+                        destroyLastScope();
+                    }
+
+                    layoutManager.viewPorts[vp] = {
+                        destroy: function() { clearContent(); }, 
                         renderView: function (view) {
-                            element.html(view);
-                            $compile(element.contents())(scope);
+                            clearContent();
+                            element.html(view.template);
+
+                            var link = $compile(element.contents()),
+                                controller;
+
+                            lastScope = view.scope = scope.$new();
+                            if (view.controller) {
+                                view.locals.$scope = lastScope;
+                                controller = $controller(view.controller, view.locals);
+                                element.children().data('$ngControllerController', controller);
+                            }
+                            link(lastScope);
                         }
                     };
                 }

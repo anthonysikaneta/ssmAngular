@@ -2,7 +2,7 @@
         var _currentScene = null,
             viewDefinitions = {},
             viewPriorityMap = {},
-            views = {},
+            viewTemplates = {},
             viewTemplatesBaseURL = "/Client/tpl/",
             defaultScene = 'DefaultScene';
 
@@ -18,26 +18,62 @@
             // the sequence filter should be built into the eventAggregator and not have to be passed in seperately.
             show: function (eventAggregator, layoutManager, behaviourSvc, sequenceFilter) {
                 var that = this;
-                console.log('showing my scene: ' + this.name)
+                console.log('waiting for dependencies to resolve: ' + this.name);
+
                 layoutManager.setTemplate(this.config.layouts[0])
                     .then(function (slm) {
-                        // render views in their respective view priorities.
+                        // render viewTemplates in their respective view priorities.
                         for (var viewName in that.config.viewPriorityMap) {
                             if (!that.config.viewPriorityMap.hasOwnProperty(viewName)) continue;
-                            slm.addView(views[viewName.replace('_', '')], that.config.viewPriorityMap[viewName]);
+                            var f = function (vw) {
+                                that.waitForDepsToResolve.then(function () {
+                                    console.log('dependencies have resolved: ' + that.name);
+                                    slm.addView(viewDefinitions[vw.replace('_', '')], that.config.viewPriorityMap[vw]);
+                                });
+                            };
+                            f(viewName); // need a closure around viewName so the async then function is invoked with the current value of viewName
                         }
                     });
+
             },
-            resolveDependencies: function($q, $http, $templateCache) {
+            resolveDependencies: function ($q, $http, $templateCache, $injector) {
+                var deps = [];
                 for (var viewName in this.config.viewPriorityMap) {
                     if (!this.config.viewPriorityMap.hasOwnProperty(viewName)) continue;
-
                     viewName = viewName.replace('_', '');
-                    views[viewName] = viewDefinitions[viewName].template;
+                    var view = viewDefinitions[viewName];
+
+                    viewTemplates[viewName] = view.template;
                     if (viewDefinitions[viewName].templateUrl) {
-                        resolveTemplate(viewName, viewDefinitions[viewName].templateUrl, views, $q, $http, $templateCache);
+                        resolveTemplate(viewName, viewDefinitions[viewName].templateUrl, viewTemplates, $q, $http, $templateCache);
+                        view.template = viewTemplates[viewName]; // TODO: fix this code bc it has grown complex due to unnecessary viewTemplates obj.   just treat the template as a resolve.
                     }
+
+                    var keys = [],
+                        values = [],
+                        template;
+
+                    angular.forEach(view.resolve || {}, function (value, key) {
+                        keys.push(key);
+                        values.push(angular.isString(value) ? $injector.get(value) : $injector.invoke(value));
+                    });
+
+                    var waitForAllViewDependenciesToResolve = $q.all(values).then(function (values) {
+                        var locals = {};
+                        angular.forEach(values, function (value, index) {
+                            locals[keys[index]] = value;
+                        });
+                        return locals;
+                    })
+                    .then(function(locals) {
+                        view.locals = locals;
+                        // TODO: add the route parameters (view configs) to the locals
+                        return locals; // this return is not being used but I think it must return something.. not sure...
+                    });
+
+                    deps.push(waitForAllViewDependenciesToResolve);
                 }
+                return this.waitForDepsToResolve = $q.all(deps);
             }
         };
 
@@ -46,11 +82,14 @@
         };
 
         this.addView = function (name, template, config) {
+            if (!config) config = {  };
             var view = {
                 name: name,
                 templateUrl: template ? null : viewTemplatesBaseURL + name + ".html",
                 template: template,
-                config: config
+                locals: config.locals ? config.locals : {},
+                controller: config.controller ? config.controller : name + 'Ctrl',
+                resolve: config.resolve ? config.resolve : {}
             };
             viewDefinitions[name] = view;
             return this;
@@ -60,7 +99,7 @@
             this.scenes[scene.name] = angular.extend({}, sceneBase, scene);
         };
 
-        this.$get = ['$q', '$http', '$templateCache', '$rootScope', 'ssmLayoutMan', function ($q, $http, $templateCache, $rootScope, layoutManager) {
+        this.$get = ['$q', '$http', '$templateCache', '$rootScope', 'ssmLayoutMan', '$injector', function ($q, $http, $templateCache, $rootScope, layoutManager, $injector) {
             // TODO: move these addTemplate calls to config, but before I can do that I must make a provider for layoutManager.
             return {
                 scenes: this.scenes,
@@ -68,7 +107,7 @@
                     var nextScene = this.scenes[sceneName];
                     if (!nextScene) nextScene = this.scenes[defaultScene];  // TODO: allow default scene name to be configured.
 
-                    nextScene.resolveDependencies($q, $http, $templateCache);
+                    nextScene.resolveDependencies($q, $http, $templateCache, $injector);
 
                     var showScene = function () {
                         _currentScene = nextScene;
