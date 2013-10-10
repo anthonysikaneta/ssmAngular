@@ -54,7 +54,7 @@
                 $q.when(newTemplate).then(function (newTemplate) {
                     d.resolve(that);
                     $q.when(that.setTemplateFunc(newTemplate)).then(function () {
-                        for (var i = 0; i < views.length; i++) {
+                        for (var i = 0; i < viewsDescriptions.length; i++) {
                             viewPorts[i].renderView(views[i]);
                         }
                     });
