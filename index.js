@@ -121,7 +121,8 @@
                     d.resolve(that);
                     $q.when(that.setTemplateFunc(newTemplate)).then(function () {
                         for (var i = 0; i < views.length; i++) {
-                            viewPorts[i].renderView(views[i]);
+                            if (views[i])
+                                viewPorts[i].renderView(views[i]);
                         }
                     });
                 });

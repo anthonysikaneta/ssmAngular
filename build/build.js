@@ -323,7 +323,8 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
                     d.resolve(that);\r\n\
                     $q.when(that.setTemplateFunc(newTemplate)).then(function () {\r\n\
                         for (var i = 0; i < views.length; i++) {\r\n\
-                            viewPorts[i].renderView(views[i]);\r\n\
+                            if (views[i])\r\n\
+                                viewPorts[i].renderView(views[i]);\r\n\
                         }\r\n\
                     });\r\n\
                 });\r\n\
