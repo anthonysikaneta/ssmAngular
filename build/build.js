@@ -341,6 +341,7 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
             viewPriorityMap = {},\r\n\
             viewTemplates = {},\r\n\
             viewTemplatesBaseURL = \"/Client/tpl/\",\r\n\
+            viewBaseURL = '/Client/views/',\r\n\
             defaultScene = 'DefaultScene';\r\n\
 \r\n\
         this.scenes = {};\r\n\
@@ -379,6 +380,7 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
                     if (!this.config.viewPriorityMap.hasOwnProperty(viewName)) continue;\r\n\
                     viewName = viewName.replace('_', '');\r\n\
                     var view = viewDefinitions[viewName];\r\n\
+                    if (!view) throw Error('The view: ' + viewName + ' doesnt exist.');\r\n\
 \r\n\
                     viewTemplates[viewName] = view.template;\r\n\
                     if (viewDefinitions[viewName].templateUrl) {\r\n\
@@ -419,13 +421,15 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
         };\r\n\
 \r\n\
         this.addView = function (name, template, config) {\r\n\
+            var baseURL = name.indexOf('+') < 0 ? viewTemplatesBaseURL : viewBaseURL;\r\n\
+\r\n\
             if (!config) config = {  };\r\n\
             var view = {\r\n\
                 name: name,\r\n\
-                templateUrl: template ? null : viewTemplatesBaseURL + name + \".html\",\r\n\
+                templateUrl: template ? null : baseURL + name.replace('+','/') + \".html\",\r\n\
                 template: template,\r\n\
                 locals: config.locals ? config.locals : {},\r\n\
-                controller: config.controller ? config.controller : name + 'Ctrl',\r\n\
+                controller: config.controller ? config.controller : name.replace('+','') + 'Ctrl',\r\n\
                 resolve: config.resolve ? config.resolve : {}\r\n\
             };\r\n\
             viewDefinitions[name] = view;\r\n\

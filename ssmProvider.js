@@ -4,6 +4,7 @@
             viewPriorityMap = {},
             viewTemplates = {},
             viewTemplatesBaseURL = "/Client/tpl/",
+            viewBaseURL = '/Client/views/',
             defaultScene = 'DefaultScene';
 
         this.scenes = {};
@@ -42,6 +43,7 @@
                     if (!this.config.viewPriorityMap.hasOwnProperty(viewName)) continue;
                     viewName = viewName.replace('_', '');
                     var view = viewDefinitions[viewName];
+                    if (!view) throw Error('The view: ' + viewName + ' doesnt exist.');
 
                     viewTemplates[viewName] = view.template;
                     if (viewDefinitions[viewName].templateUrl) {
@@ -82,13 +84,15 @@
         };
 
         this.addView = function (name, template, config) {
+            var baseURL = name.indexOf('+') < 0 ? viewTemplatesBaseURL : viewBaseURL;
+
             if (!config) config = {  };
             var view = {
                 name: name,
-                templateUrl: template ? null : viewTemplatesBaseURL + name + ".html",
+                templateUrl: template ? null : baseURL + name.replace('+','/') + ".html",
                 template: template,
                 locals: config.locals ? config.locals : {},
-                controller: config.controller ? config.controller : name + 'Ctrl',
+                controller: config.controller ? config.controller : name.replace('+','') + 'Ctrl',
                 resolve: config.resolve ? config.resolve : {}
             };
             viewDefinitions[name] = view;
