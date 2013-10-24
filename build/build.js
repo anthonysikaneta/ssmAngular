@@ -320,13 +320,8 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
 \r\n\
                 // load the new template\r\n\
                 $q.when(newTemplate).then(function (newTemplate) {\r\n\
+                    that.setTemplateFunc(newTemplate);\r\n\
                     d.resolve(that);\r\n\
-                    $q.when(that.setTemplateFunc(newTemplate)).then(function () {\r\n\
-                        for (var i = 0; i < views.length; i++) {\r\n\
-                            if (views[i])\r\n\
-                                viewPorts[i].renderView(views[i]);\r\n\
-                        }\r\n\
-                    });\r\n\
                 });\r\n\
 \r\n\
                 return d.promise;\r\n\

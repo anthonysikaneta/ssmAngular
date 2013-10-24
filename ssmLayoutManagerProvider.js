@@ -52,13 +52,8 @@
 
                 // load the new template
                 $q.when(newTemplate).then(function (newTemplate) {
+                    that.setTemplateFunc(newTemplate);
                     d.resolve(that);
-                    $q.when(that.setTemplateFunc(newTemplate)).then(function () {
-                        for (var i = 0; i < views.length; i++) {
-                            if (views[i])
-                                viewPorts[i].renderView(views[i]);
-                        }
-                    });
                 });
 
                 return d.promise;
