@@ -330,7 +330,7 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
         };\r\n\
     }];\r\n\
 }\r\n\
-﻿    function ssmProvider() {\r\n\
+﻿    function ssmProvider(ssmLayoutProvider) {\r\n\
         var _currentScene = null,\r\n\
             viewDefinitions = {},\r\n\
             viewPriorityMap = {},\r\n\
@@ -432,6 +432,10 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
         };\r\n\
 \r\n\
         this.addScene = function (scene) {\r\n\
+            for (var i = 0; i < scene.config.layouts.length; i++) {\r\n\
+                ssmLayoutProvider.addLayout(scene.config.layouts[i]);\r\n\
+            }\r\n\
+            \r\n\
             this.scenes[scene.name] = angular.extend({}, sceneBase, scene);\r\n\
         };\r\n\
 \r\n\
@@ -465,7 +469,8 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
             };\r\n\
         }];\r\n\
     };\r\n\
-﻿    /**\r\n\
+\r\n\
+    ssmProvider.$inject = ['ssmLayoutManProvider'];﻿    /**\r\n\
     * @ngdoc provider\r\n\
     * @name ssmUrlRouterProvider\r\n\
     * @methodOf ng.$route\r\n\
@@ -710,8 +715,9 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
 ﻿angular.module('ssmAngular')\r\n\
     .provider('ssmRoute', ssmUrlRouterProvider)\r\n\
     .provider('ssmRouteTemplateMatcher', ssmRouteTemplateMatcherProvider)\r\n\
-    .provider('ssm', ssmProvider)\r\n\
-    .provider('ssmLayoutMan', ssmLayoutManProvider);\r\n\
+    .provider('ssmLayoutMan', ssmLayoutManProvider)\r\n\
+    .provider('ssm', ssmProvider);\r\n\
+\r\n\
 })(window.document);//@ sourceURL=ssmAngular/index.js"
 ));
 require.register("ssmAngular/template.js", Function("exports, require, module",

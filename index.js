@@ -128,7 +128,7 @@
         };
     }];
 }
-﻿    function ssmProvider() {
+﻿    function ssmProvider(ssmLayoutProvider) {
         var _currentScene = null,
             viewDefinitions = {},
             viewPriorityMap = {},
@@ -230,6 +230,10 @@
         };
 
         this.addScene = function (scene) {
+            for (var i = 0; i < scene.config.layouts.length; i++) {
+                ssmLayoutProvider.addLayout(scene.config.layouts[i]);
+            }
+            
             this.scenes[scene.name] = angular.extend({}, sceneBase, scene);
         };
 
@@ -263,7 +267,8 @@
             };
         }];
     };
-﻿    /**
+
+    ssmProvider.$inject = ['ssmLayoutManProvider'];﻿    /**
     * @ngdoc provider
     * @name ssmUrlRouterProvider
     * @methodOf ng.$route
@@ -508,6 +513,7 @@
 ﻿angular.module('ssmAngular')
     .provider('ssmRoute', ssmUrlRouterProvider)
     .provider('ssmRouteTemplateMatcher', ssmRouteTemplateMatcherProvider)
-    .provider('ssm', ssmProvider)
-    .provider('ssmLayoutMan', ssmLayoutManProvider);
+    .provider('ssmLayoutMan', ssmLayoutManProvider)
+    .provider('ssm', ssmProvider);
+
 })(window.document);

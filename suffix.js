@@ -1,6 +1,7 @@
 ﻿angular.module('ssmAngular')
     .provider('ssmRoute', ssmUrlRouterProvider)
     .provider('ssmRouteTemplateMatcher', ssmRouteTemplateMatcherProvider)
-    .provider('ssm', ssmProvider)
-    .provider('ssmLayoutMan', ssmLayoutManProvider);
+    .provider('ssmLayoutMan', ssmLayoutManProvider)
+    .provider('ssm', ssmProvider);
+
 })(window.document);
