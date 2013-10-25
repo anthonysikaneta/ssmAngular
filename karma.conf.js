@@ -16,8 +16,7 @@ module.exports = function(config) {
     files: [
       'lib/angular-1.0.7.js',
       'lib/angular-mocks-1.0.7.js',
-      'ssmAngular.js',
-      'ssmRouteTemplateMatcher.js',
+      'index.js',
       'spec/*.js'
     ],
 

@@ -351,17 +351,20 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
             // the sequence filter should be built into the eventAggregator and not have to be passed in seperately.\r\n\
             show: function (eventAggregator, layoutManager, behaviourSvc, sequenceFilter) {\r\n\
                 var that = this;\r\n\
+          \r\n\
                 console.log('waiting for dependencies to resolve: ' + this.name);\r\n\
 \r\n\
-                layoutManager.setTemplate(this.config.layouts[0])\r\n\
+                layoutManager.setTemplate(this.layout)\r\n\
                     .then(function (slm) {\r\n\
                         // render viewTemplates in their respective view priorities.\r\n\
                         for (var viewName in that.config.viewPriorityMap) {\r\n\
                             if (!that.config.viewPriorityMap.hasOwnProperty(viewName)) continue;\r\n\
+                            \r\n\
                             var f = function (vw) {\r\n\
                                 that.waitForDepsToResolve.then(function () {\r\n\
                                     console.log('dependencies have resolved: ' + that.name);\r\n\
-                                    slm.addView(viewDefinitions[vw.replace('_', '')], that.config.viewPriorityMap[vw]);\r\n\
+                                    that.views[vw].template = viewDefinitions[vw.replace('_', '')].template;\r\n\
+                                    slm.addView(that.views[vw], that.config.viewPriorityMap[vw]);\r\n\
                                 });\r\n\
                             };\r\n\
                             f(viewName); // need a closure around viewName so the async then function is invoked with the current value of viewName\r\n\
@@ -436,7 +439,17 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
                 ssmLayoutProvider.addLayout(scene.config.layouts[i]);\r\n\
             }\r\n\
             \r\n\
-            this.scenes[scene.name] = angular.extend({}, sceneBase, scene);\r\n\
+            scene = this.scenes[scene.name] = angular.extend({}, sceneBase, scene);\r\n\
+            scene.views = {};\r\n\
+            for (var viewName in scene.config.viewPriorityMap) {\r\n\
+                if (!scene.config.viewPriorityMap.hasOwnProperty(viewName)) continue;\r\n\
+                var actualViewName = viewName.replace('_', '');\r\n\
+                // when choosing a view whatever access the views collection must be aware that underscores need\r\n\
+                // to be stripped in viewName.  This is to support having many of the same view in the same scene.\r\n\
+                scene.views[viewName] = angular.extend({}, viewDefinitions[actualViewName]);\r\n\
+            }\r\n\
+            scene.layout = scene.config.layouts[0];\r\n\
+            scene.layouts = scene.config.layouts;\r\n\
         };\r\n\
 \r\n\
         this.$get = ['$q', '$http', '$templateCache', '$rootScope', 'ssmLayoutMan', '$injector', function ($q, $http, $templateCache, $rootScope, layoutManager, $injector) {\r\n\
@@ -445,14 +458,25 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
                 scenes: this.scenes,\r\n\
                 transitionTo: function (sceneName, options) {\r\n\
                     var nextScene = this.scenes[sceneName];\r\n\
-                    if (!nextScene) nextScene = this.scenes[defaultScene];  // TODO: allow default scene name to be configured.\r\n\
+                    if (!nextScene) nextScene = this.scenes[defaultScene];\r\n\
 \r\n\
-                    nextScene.resolveDependencies($q, $http, $templateCache, $injector);\r\n\
+                    if (options.views) {\r\n\
+                        _.forEach(options.views, function (viewData) {\r\n\
+                            if(viewData.name)\r\n\
+                                nextScene.views[viewData.name].locals = { locals: viewData.config };\r\n\
+                        });\r\n\
+                    }\r\n\
+\r\n\
+                    if (nextScene.layouts.indexOf(options.layout) >= 0) {\r\n\
+                        nextScene.layout = options.layout;\r\n\
+                    }\r\n\
 \r\n\
                     var showScene = function () {\r\n\
-                        _currentScene = nextScene;\r\n\
-                        _currentScene.show($rootScope, layoutManager);\r\n\
+                        nextScene = nextScene;\r\n\
+                        nextScene.show($rootScope, layoutManager);\r\n\
                     };\r\n\
+\r\n\
+                    nextScene.resolveDependencies($q, $http, $templateCache, $injector);\r\n\
 \r\n\
                     if (!_currentScene) {\r\n\
                         showScene();\r\n\

@@ -10,6 +10,7 @@
             expect(ssmRouteTemplateMatcher.matchTemplate('/AwesomeScene/layout-AwesomeLayout')).toBe('/:scene/layout-:layout');
             expect(ssmRouteTemplateMatcher.matchTemplate('/AwesomeScene/view-AwesomeLayout')).toBe('/:scene/view-:view');
             expect(ssmRouteTemplateMatcher.matchTemplate('/AwesomeScene/layout-AwesomeLayout/myAwesomeView-symbol-MSFT')).toBe('/:scene/layout-:layout/:view-{config}/*');
+            expect(ssmRouteTemplateMatcher.matchTemplate('/ProductDetails/layout-VerticalHalfTpl/CRUD+Details-detailsFor-Product')).toBe('/:scene/layout-:layout/:view-{config}/*');
         }));
 
         it('should match url paths to their respective data objects', inject(function (ssmRouteTemplateMatcher) {
@@ -39,11 +40,11 @@
                     }
                 ]
             });
-            expect(ssmRouteTemplateMatcher.parseRoute('/Accounts/layout-AwesomeLayout/myAwesomeView-symbol-GOOG-price-99.9/second-symbol-MSFT-price-100')).toEqual({
+            expect(ssmRouteTemplateMatcher.parseRoute('/Accounts/layout-AwesomeLayout/myAwesome+View-symbol-GOOG-price-99.9/second-symbol-MSFT-price-100')).toEqual({
                 scene: 'Accounts', layout: 'AwesomeLayout',
                 views: [
                     {
-                        name: 'myAwesomeView',
+                        name: 'myAwesome+View',
                         config: {
                             symbol: 'GOOG',
                             price: '99.9'
@@ -54,6 +55,18 @@
                         config: {
                             symbol: 'MSFT',
                             price: '100'
+                        }
+                    }
+                ]
+            });
+
+            expect(ssmRouteTemplateMatcher.parseRoute('/ProductDetails/layout-VerticalHalfTpl/CRUD+Details-detailsFor-Product')).toEqual({
+                scene: 'ProductDetails', layout: 'VerticalHalfTpl',
+                views: [
+                    {
+                        name: 'CRUD+Details',
+                        config: {
+                            detailsFor: 'Product'
                         }
                     }
                 ]

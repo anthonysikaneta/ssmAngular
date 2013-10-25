@@ -19,17 +19,20 @@
             // the sequence filter should be built into the eventAggregator and not have to be passed in seperately.
             show: function (eventAggregator, layoutManager, behaviourSvc, sequenceFilter) {
                 var that = this;
+          
                 console.log('waiting for dependencies to resolve: ' + this.name);
 
-                layoutManager.setTemplate(this.config.layouts[0])
+                layoutManager.setTemplate(this.layout)
                     .then(function (slm) {
                         // render viewTemplates in their respective view priorities.
                         for (var viewName in that.config.viewPriorityMap) {
                             if (!that.config.viewPriorityMap.hasOwnProperty(viewName)) continue;
+                            
                             var f = function (vw) {
                                 that.waitForDepsToResolve.then(function () {
                                     console.log('dependencies have resolved: ' + that.name);
-                                    slm.addView(viewDefinitions[vw.replace('_', '')], that.config.viewPriorityMap[vw]);
+                                    that.views[vw].template = viewDefinitions[vw.replace('_', '')].template;
+                                    slm.addView(that.views[vw], that.config.viewPriorityMap[vw]);
                                 });
                             };
                             f(viewName); // need a closure around viewName so the async then function is invoked with the current value of viewName
@@ -104,7 +107,17 @@
                 ssmLayoutProvider.addLayout(scene.config.layouts[i]);
             }
             
-            this.scenes[scene.name] = angular.extend({}, sceneBase, scene);
+            scene = this.scenes[scene.name] = angular.extend({}, sceneBase, scene);
+            scene.views = {};
+            for (var viewName in scene.config.viewPriorityMap) {
+                if (!scene.config.viewPriorityMap.hasOwnProperty(viewName)) continue;
+                var actualViewName = viewName.replace('_', '');
+                // when choosing a view whatever access the views collection must be aware that underscores need
+                // to be stripped in viewName.  This is to support having many of the same view in the same scene.
+                scene.views[viewName] = angular.extend({}, viewDefinitions[actualViewName]);
+            }
+            scene.layout = scene.config.layouts[0];
+            scene.layouts = scene.config.layouts;
         };
 
         this.$get = ['$q', '$http', '$templateCache', '$rootScope', 'ssmLayoutMan', '$injector', function ($q, $http, $templateCache, $rootScope, layoutManager, $injector) {
@@ -113,14 +126,25 @@
                 scenes: this.scenes,
                 transitionTo: function (sceneName, options) {
                     var nextScene = this.scenes[sceneName];
-                    if (!nextScene) nextScene = this.scenes[defaultScene];  // TODO: allow default scene name to be configured.
+                    if (!nextScene) nextScene = this.scenes[defaultScene];
 
-                    nextScene.resolveDependencies($q, $http, $templateCache, $injector);
+                    if (options.views) {
+                        _.forEach(options.views, function (viewData) {
+                            if(viewData.name)
+                                nextScene.views[viewData.name].locals = { locals: viewData.config };
+                        });
+                    }
+
+                    if (nextScene.layouts.indexOf(options.layout) >= 0) {
+                        nextScene.layout = options.layout;
+                    }
 
                     var showScene = function () {
-                        _currentScene = nextScene;
-                        _currentScene.show($rootScope, layoutManager);
+                        nextScene = nextScene;
+                        nextScene.show($rootScope, layoutManager);
                     };
+
+                    nextScene.resolveDependencies($q, $http, $templateCache, $injector);
 
                     if (!_currentScene) {
                         showScene();
