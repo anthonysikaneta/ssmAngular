@@ -509,8 +509,8 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
     */\r\n\
     function ssmUrlRouterProvider() {\r\n\
 \r\n\
-        this.$get = ['$rootScope', '$location', '$routeParams', '$q', '$injector', 'ssm', 'ssmRouteTemplateMatcher',\r\n\
-        function ($rootScope, $location, $routeParams, $q, $injector, ssm, routeParser) {\r\n\
+        this.$get = ['$rootScope', '$location', '$q', '$injector', 'ssm', 'ssmRouteTemplateMatcher',\r\n\
+        function ($rootScope, $location, $q, $injector, ssm, routeParser) {\r\n\
             var forceReload = false,\r\n\
             $route = {\r\n\
                 /**\r\n\

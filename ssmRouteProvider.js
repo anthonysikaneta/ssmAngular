@@ -13,8 +13,8 @@
     */
     function ssmUrlRouterProvider() {
 
-        this.$get = ['$rootScope', '$location', '$routeParams', '$q', '$injector', 'ssm', 'ssmRouteTemplateMatcher',
-        function ($rootScope, $location, $routeParams, $q, $injector, ssm, routeParser) {
+        this.$get = ['$rootScope', '$location', '$q', '$injector', 'ssm', 'ssmRouteTemplateMatcher',
+        function ($rootScope, $location, $q, $injector, ssm, routeParser) {
             var forceReload = false,
             $route = {
                 /**
