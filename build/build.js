@@ -592,8 +592,8 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
     */\r\n\
     function ssmUrlRouterProvider() {\r\n\
 \r\n\
-        this.$get = ['$rootScope', '$location', '$q', '$injector', 'ssm', 'ssmRouteTemplateMatcher',\r\n\
-        function ($rootScope, $location, $q, $injector, ssm, routeParser) {\r\n\
+        this.$get = ['$rootScope', '$location', '$q', '$injector', 'ssm', 'ssmRouteTemplateMatcher', '$anchorScroll',\r\n\
+        function ($rootScope, $location, $q, $injector, ssm, routeParser, $anchorScroll) {\r\n\
             var forceReload = false,\r\n\
             $route = {\r\n\
                 /**\r\n\
@@ -620,7 +620,9 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
             return $route;\r\n\
 \r\n\
             function updateRoute() {\r\n\
-\r\n\
+                // only call anchor scroll if the hash isn't empty since we set it to empty after scrolling\r\n\
+                if ($location.hash()) $anchorScroll();\r\n\
+                $location.hash('');\r\n\
                 if (lastPath == $location.path()) {\r\n\
                     return;  // early quit if the path hasn't changed.\r\n\
                 } else {\r\n\

@@ -390,8 +390,8 @@
     */
     function ssmUrlRouterProvider() {
 
-        this.$get = ['$rootScope', '$location', '$q', '$injector', 'ssm', 'ssmRouteTemplateMatcher',
-        function ($rootScope, $location, $q, $injector, ssm, routeParser) {
+        this.$get = ['$rootScope', '$location', '$q', '$injector', 'ssm', 'ssmRouteTemplateMatcher', '$anchorScroll',
+        function ($rootScope, $location, $q, $injector, ssm, routeParser, $anchorScroll) {
             var forceReload = false,
             $route = {
                 /**
@@ -418,7 +418,9 @@
             return $route;
 
             function updateRoute() {
-
+                // only call anchor scroll if the hash isn't empty since we set it to empty after scrolling
+                if ($location.hash()) $anchorScroll();
+                $location.hash('');
                 if (lastPath == $location.path()) {
                     return;  // early quit if the path hasn't changed.
                 } else {
