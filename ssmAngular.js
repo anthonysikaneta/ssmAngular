@@ -44,6 +44,7 @@
 
                             lastScope = view.scope = scope.$new();
                             if (view.controller) {
+                                angular.extend(lastScope, view.locals);
                                 view.locals.$scope = lastScope;
                                 controller = $controller(view.controller, view.locals);
                                 element.children().data('$ngControllerController', controller);
@@ -53,4 +54,70 @@
                     };
                 }
             };
-        }]);
+        }])
+        .provider('ssmDialogSvc', function() {
+            var dialogStack = [],
+                viewPortSlot = 100,
+                $body = $('body'),
+                $activeDialog = null,
+                dialogTplUrl = '/Client/tpl/DialogTpl.html',
+                awaitDialogTpl = null; 
+
+            this.setDialogTpl = function (dialogTpl) {
+
+            };
+
+            this.$get = ['ssmLayoutMan', '$rootScope', '$templateCache', '$http', '$q', '$compile', function (layoutManager, $rootScope, $templateCache, $http, $q, $compile) {
+                return {
+                    preload: function() {
+                        awaitDialogTpl = $http.get(dialogTplUrl, {cache:$templateCache});
+                    },
+                    pushDialog: function (view) {
+                        var that = this;
+                        var c = $body.find('[ssm-dialog="true"]');
+                        if (c.length > 0) {
+                            $activeDialog.modal('hide');
+                            dialogStack.push(c.detach());
+                        }
+                        $q.when(view.template).then(function (template) {
+                            awaitDialogTpl.then(function (dialogHtml) {
+                                var $dialog = $(dialogHtml.data);
+                                $dialog.find('.modal-body').append(template);
+                                // get the outerHTML by appending it to a div first, cause html() only returns inner.
+                                view.template = $('<div />').append($dialog).html(); 
+
+                                var vp = $('<div ssm-Viewport visual-Priority="' + (viewPortSlot++) + '" ssm-Dialog="true"></div>');
+                                $body.append(vp);
+                                $compile(vp)($rootScope.$new());
+                                layoutManager.addView(view, viewPortSlot - 1).then(function () {
+                                    $activeDialog = $body.find('[ssm-dialog="true"] .modal');
+                                    $activeDialog.modal({});
+                                    $activeDialog.on('hidden.bs.modal', function () {
+                                        that.popDialog();
+                                    });
+                                    // restore the template back to normal.
+                                    view.template = template;
+                                });
+
+                            });
+                        });
+                    },
+                    popDialog: function () {
+                        var c = $body.find('[ssm-dialog="true"]');
+                        if (c.length > 0) {
+                            $activeDialog.modal('hide');
+                            c.remove();
+                        }
+                        if (dialogStack.length > 0) {
+                            var p = dialogStack.pop();
+                            $body.append(p);
+                            $activeDialog = p.find('.modal');
+                            $activeDialog.modal('show');
+                            return true; 
+                        }
+                        return false;
+                    }
+                };
+            }];
+        })
+;

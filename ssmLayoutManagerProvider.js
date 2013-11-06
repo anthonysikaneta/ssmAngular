@@ -30,13 +30,14 @@
                 var viewPort = null;
                 views[viewPortId] = view;
                 if (viewPort = viewPorts[viewPortId]) {
-                    $q.when(view.template).then(function (template) { // TODO: refactor: could instead wait on the entire view's dependencies if I rolled the template into the resolve and just passed a view as a promise or a value.
+                    return $q.when(view.template).then(function (template) { // TODO: refactor: could instead wait on the entire view's dependencies if I rolled the template into the resolve and just passed a view as a promise or a value.
                         view.template = template;
                         viewPort.renderView(view);  
                     });
                 } else {
                     throw new Error('No viewport: ' + viewPortId);
                 }
+                return null;
             },
             viewPorts: viewPorts,  // gets set by the ssm-Viewport directives as they link.
             setTemplate: function (templateName) {

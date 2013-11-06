@@ -42,9 +42,8 @@
             },
             resolveDependencies: function ($q, $http, $templateCache, $injector) {
                 var deps = [];
-                for (var viewName in this.config.viewPriorityMap) {
-                    if (!this.config.viewPriorityMap.hasOwnProperty(viewName)) continue;
-                    viewName = viewName.replace('_', '');
+                for (var viewName in this.views) {
+                    if (!this.views.hasOwnProperty(viewName)) continue;
                     var view = viewDefinitions[viewName];
                     if (!view) throw Error('The view: ' + viewName + ' doesnt exist.');
 
@@ -71,7 +70,7 @@
                         return locals;
                     })
                     .then(function(locals) {
-                        view.locals = locals;
+                        angular.extend(view.locals, locals);
                         // TODO: add the route parameters (view configs) to the locals
                         return locals; // this return is not being used but I think it must return something.. not sure...
                     });
@@ -103,6 +102,7 @@
         };
 
         this.addScene = function (scene) {
+            var that = this;
             for (var i = 0; i < scene.config.layouts.length; i++) {
                 ssmLayoutProvider.addLayout(scene.config.layouts[i]);
             }
@@ -118,12 +118,27 @@
             }
             scene.layout = scene.config.layouts[0];
             scene.layouts = scene.config.layouts;
+            if (scene.config.dialogs) {
+                _.forEach(scene.config.dialogs, function (dialog) {
+                    that.addView(dialog.view, null, {
+                        locals: {
+                            Title: dialog.title,
+                            Continue: dialog.dialogContinueButtonTxt,
+                            Back: dialog.dialogBackButtonTxt
+                        }
+                    });
+                    scene.views[dialog.view] = angular.copy(viewDefinitions[dialog.view]);
+                });
+            }
         };
 
-        this.$get = ['$q', '$http', '$templateCache', '$rootScope', 'ssmLayoutMan', '$injector', function ($q, $http, $templateCache, $rootScope, layoutManager, $injector) {
+        this.$get = ['$q', '$http', '$templateCache', '$rootScope', 'ssmLayoutMan', '$injector', 'ssmDialogSvc', function ($q, $http, $templateCache, $rootScope, layoutManager, $injector, ssmDialogSvc) {
             // TODO: move these addTemplate calls to config, but before I can do that I must make a provider for layoutManager.
             return {
                 scenes: this.scenes,
+                showDialog: function(viewName) {
+                    ssmDialogSvc.pushDialog(viewDefinitions[viewName]);
+                },
                 transitionTo: function (sceneName, options) {
                     var nextScene = this.scenes[sceneName];
                     if (!nextScene) nextScene = this.scenes[defaultScene];

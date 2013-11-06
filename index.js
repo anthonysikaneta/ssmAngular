@@ -54,6 +54,7 @@
 
                             lastScope = view.scope = scope.$new();
                             if (view.controller) {
+                                angular.extend(lastScope, view.locals);
                                 view.locals.$scope = lastScope;
                                 controller = $controller(view.controller, view.locals);
                                 element.children().data('$ngControllerController', controller);
@@ -63,7 +64,73 @@
                     };
                 }
             };
-        }]);
+        }])
+        .provider('ssmDialogSvc', function() {
+            var dialogStack = [],
+                viewPortSlot = 100,
+                $body = $('body'),
+                $activeDialog = null,
+                dialogTplUrl = '/Client/tpl/DialogTpl.html',
+                awaitDialogTpl = null; 
+
+            this.setDialogTpl = function (dialogTpl) {
+
+            };
+
+            this.$get = ['ssmLayoutMan', '$rootScope', '$templateCache', '$http', '$q', '$compile', function (layoutManager, $rootScope, $templateCache, $http, $q, $compile) {
+                return {
+                    preload: function() {
+                        awaitDialogTpl = $http.get(dialogTplUrl, {cache:$templateCache});
+                    },
+                    pushDialog: function (view) {
+                        var that = this;
+                        var c = $body.find('[ssm-dialog="true"]');
+                        if (c.length > 0) {
+                            $activeDialog.modal('hide');
+                            dialogStack.push(c.detach());
+                        }
+                        $q.when(view.template).then(function (template) {
+                            awaitDialogTpl.then(function (dialogHtml) {
+                                var $dialog = $(dialogHtml.data);
+                                $dialog.find('.modal-body').append(template);
+                                // get the outerHTML by appending it to a div first, cause html() only returns inner.
+                                view.template = $('<div />').append($dialog).html(); 
+
+                                var vp = $('<div ssm-Viewport visual-Priority="' + (viewPortSlot++) + '" ssm-Dialog="true"></div>');
+                                $body.append(vp);
+                                $compile(vp)($rootScope.$new());
+                                layoutManager.addView(view, viewPortSlot - 1).then(function () {
+                                    $activeDialog = $body.find('[ssm-dialog="true"] .modal');
+                                    $activeDialog.modal({});
+                                    $activeDialog.on('hidden.bs.modal', function () {
+                                        that.popDialog();
+                                    });
+                                    // restore the template back to normal.
+                                    view.template = template;
+                                });
+
+                            });
+                        });
+                    },
+                    popDialog: function () {
+                        var c = $body.find('[ssm-dialog="true"]');
+                        if (c.length > 0) {
+                            $activeDialog.modal('hide');
+                            c.remove();
+                        }
+                        if (dialogStack.length > 0) {
+                            var p = dialogStack.pop();
+                            $body.append(p);
+                            $activeDialog = p.find('.modal');
+                            $activeDialog.modal('show');
+                            return true; 
+                        }
+                        return false;
+                    }
+                };
+            }];
+        })
+;
 ﻿function ssmLayoutManProvider() {
     var viewPorts = [],
         views = [],  // list of all views shown and in which viewports they belong.
@@ -96,13 +163,14 @@
                 var viewPort = null;
                 views[viewPortId] = view;
                 if (viewPort = viewPorts[viewPortId]) {
-                    $q.when(view.template).then(function (template) { // TODO: refactor: could instead wait on the entire view's dependencies if I rolled the template into the resolve and just passed a view as a promise or a value.
+                    return $q.when(view.template).then(function (template) { // TODO: refactor: could instead wait on the entire view's dependencies if I rolled the template into the resolve and just passed a view as a promise or a value.
                         view.template = template;
                         viewPort.renderView(view);  
                     });
                 } else {
                     throw new Error('No viewport: ' + viewPortId);
                 }
+                return null;
             },
             viewPorts: viewPorts,  // gets set by the ssm-Viewport directives as they link.
             setTemplate: function (templateName) {
@@ -172,9 +240,8 @@
             },
             resolveDependencies: function ($q, $http, $templateCache, $injector) {
                 var deps = [];
-                for (var viewName in this.config.viewPriorityMap) {
-                    if (!this.config.viewPriorityMap.hasOwnProperty(viewName)) continue;
-                    viewName = viewName.replace('_', '');
+                for (var viewName in this.views) {
+                    if (!this.views.hasOwnProperty(viewName)) continue;
                     var view = viewDefinitions[viewName];
                     if (!view) throw Error('The view: ' + viewName + ' doesnt exist.');
 
@@ -201,7 +268,7 @@
                         return locals;
                     })
                     .then(function(locals) {
-                        view.locals = locals;
+                        angular.extend(view.locals, locals);
                         // TODO: add the route parameters (view configs) to the locals
                         return locals; // this return is not being used but I think it must return something.. not sure...
                     });
@@ -233,6 +300,7 @@
         };
 
         this.addScene = function (scene) {
+            var that = this;
             for (var i = 0; i < scene.config.layouts.length; i++) {
                 ssmLayoutProvider.addLayout(scene.config.layouts[i]);
             }
@@ -248,12 +316,27 @@
             }
             scene.layout = scene.config.layouts[0];
             scene.layouts = scene.config.layouts;
+            if (scene.config.dialogs) {
+                _.forEach(scene.config.dialogs, function (dialog) {
+                    that.addView(dialog.view, null, {
+                        locals: {
+                            Title: dialog.title,
+                            Continue: dialog.dialogContinueButtonTxt,
+                            Back: dialog.dialogBackButtonTxt
+                        }
+                    });
+                    scene.views[dialog.view] = angular.copy(viewDefinitions[dialog.view]);
+                });
+            }
         };
 
-        this.$get = ['$q', '$http', '$templateCache', '$rootScope', 'ssmLayoutMan', '$injector', function ($q, $http, $templateCache, $rootScope, layoutManager, $injector) {
+        this.$get = ['$q', '$http', '$templateCache', '$rootScope', 'ssmLayoutMan', '$injector', 'ssmDialogSvc', function ($q, $http, $templateCache, $rootScope, layoutManager, $injector, ssmDialogSvc) {
             // TODO: move these addTemplate calls to config, but before I can do that I must make a provider for layoutManager.
             return {
                 scenes: this.scenes,
+                showDialog: function(viewName) {
+                    ssmDialogSvc.pushDialog(viewDefinitions[viewName]);
+                },
                 transitionTo: function (sceneName, options) {
                     var nextScene = this.scenes[sceneName];
                     if (!nextScene) nextScene = this.scenes[defaultScene];
