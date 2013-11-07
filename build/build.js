@@ -231,7 +231,7 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
                 link: function (scope, element, attrs) {\r\n\
                     var vp = parseInt(attrs.visualPriority, 10),\r\n\
                         lastScope; \r\n\
-                    $log.log('attr visualPriority: ' + vp);\r\n\
+                    $log.debug('attr visualPriority: ' + vp);\r\n\
 \r\n\
                     function destroyLastScope() {\r\n\
                         if (lastScope) {\r\n\

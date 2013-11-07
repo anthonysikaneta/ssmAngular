@@ -19,7 +19,7 @@
                 link: function (scope, element, attrs) {
                     var vp = parseInt(attrs.visualPriority, 10),
                         lastScope; 
-                    $log.log('attr visualPriority: ' + vp);
+                    $log.debug('attr visualPriority: ' + vp);
 
                     function destroyLastScope() {
                         if (lastScope) {
