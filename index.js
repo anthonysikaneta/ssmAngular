@@ -9,13 +9,19 @@
         resolved[tplName] = d.promise;
     }
 ﻿angular.module('ssmAngular', [])
-        .directive('ssmLayout', ['$compile', 'ssmRoute', 'ssmLayoutMan', function ($compile, $route, layoutManager) {
+        .directive('ssmLayout', ['$compile', 'ssmRoute', 'ssmLayoutMan', '$log', function ($compile, $route, layoutManager, $log) {
             return {
                 replace: true,
                 compile: function (tElement, tAttrs) {
                     return function (scope, element, attrs) {
                         layoutManager.setTemplateFunc = function (tpl) {
-                            element.html(tpl);
+                            var container = $(tpl);
+                            // add the ssm-init directive which guesstimates when Angular is finihsed processing directives and fires 'initialized'
+                            container.attr('ssm-init', '');
+                            element.html('');
+                            element.append(container);
+                            $log.debug('ssmLayout: element.contents() ->');
+                            $log.debug(element.contents());
                             $compile(element.contents())(scope);
                             return true; // right now this func is expected to return a promise or value (which gets converted to a promise)
                         };
@@ -62,6 +68,22 @@
                             link(lastScope);
                         }
                     };
+                }
+            };
+        }])
+        .directive('ssmInit', ['$rootScope', '$log', function($rootScope, $log) {
+            return {
+                restrict: 'ECA',
+                link: function($scope, $log) {
+                    var to;
+                    var listener = $scope.$watch(function() {
+                        clearTimeout(to);
+                        to = setTimeout(function () {
+                            console.debug('ssmInit: initialized');
+                            listener();
+                            $rootScope.$emit('ssm:init');
+                        }, 50);
+                    });
                 }
             };
         }])
@@ -220,7 +242,7 @@
           
                 console.log('waiting for dependencies to resolve: ' + this.name);
 
-                layoutManager.setTemplate(this.layout)
+                return layoutManager.setTemplate(this.layout)
                     .then(function (slm) {
                         // render viewTemplates in their respective view priorities.
                         for (var viewName in that.config.viewPriorityMap) {
@@ -354,17 +376,17 @@
 
                     var showScene = function () {
                         nextScene = nextScene;
-                        nextScene.show($rootScope, layoutManager);
+                        return nextScene.show($rootScope, layoutManager);
                     };
 
                     nextScene.resolveDependencies($q, $http, $templateCache, $injector);
 
                     if (!_currentScene) {
-                        showScene();
+                        return showScene();
                     } else {
                         // this lets the current scene know which scene we are going to
-                        $q.when(_currentScene.transitionTo(nextScene)).then(function () {
-                            showScene();
+                        return $q.when(_currentScene.transitionTo(nextScene)).then(function () {
+                            return showScene();
                         });
                     }
                     //} else {
@@ -390,8 +412,8 @@
     */
     function ssmUrlRouterProvider() {
 
-        this.$get = ['$rootScope', '$location', '$q', '$injector', 'ssm', 'ssmRouteTemplateMatcher', '$anchorScroll',
-        function ($rootScope, $location, $q, $injector, ssm, routeParser, $anchorScroll) {
+        this.$get = ['$rootScope', '$location', '$q', '$injector', 'ssm', 'ssmRouteTemplateMatcher', '$anchorScroll', '$log',
+        function ($rootScope, $location, $q, $injector, ssm, routeParser, $anchorScroll, $log) {
             var forceReload = false,
             $route = {
                 /**
@@ -415,13 +437,25 @@
             prevSceneData = null;
 
             $rootScope.$on('$locationChangeSuccess', updateRoute);
+
+            var goToHash = function () {
+                $log.debug('ssmRoute: checking for hash');
+                if ($location.hash()) {
+                    $log.debug('ssmRoute: hash found... scrolling to it now');
+                    $anchorScroll();
+                    $location.hash('');
+                }
+            };
+
+            $rootScope.$on('ssm:init', goToHash);
+
             return $route;
 
             function updateRoute() {
                 // only call anchor scroll if the hash isn't empty since we set it to empty after scrolling
-                if ($location.hash()) $anchorScroll();
-                $location.hash('');
+
                 if (lastPath == $location.path()) {
+                    goToHash();
                     return;  // early quit if the path hasn't changed.
                 } else {
                     lastPath = $location.path();
@@ -431,9 +465,12 @@
 
                 $rootScope.$broadcast('$routeChangeStart', sceneData, prevSceneData);
 
+
                 // transition to the new scene.
-                ssm.transitionTo(sceneData.scene+'Scene', sceneData);
+                ssm.transitionTo(sceneData.scene + 'Scene', sceneData);
                 
+                
+
                 $rootScope.$broadcast('$routeChangeSuccess', sceneData, prevSceneData);
                 prevSceneData = sceneData;
             }

@@ -13,8 +13,8 @@
     */
     function ssmUrlRouterProvider() {
 
-        this.$get = ['$rootScope', '$location', '$q', '$injector', 'ssm', 'ssmRouteTemplateMatcher', '$anchorScroll',
-        function ($rootScope, $location, $q, $injector, ssm, routeParser, $anchorScroll) {
+        this.$get = ['$rootScope', '$location', '$q', '$injector', 'ssm', 'ssmRouteTemplateMatcher', '$anchorScroll', '$log',
+        function ($rootScope, $location, $q, $injector, ssm, routeParser, $anchorScroll, $log) {
             var forceReload = false,
             $route = {
                 /**
@@ -38,13 +38,25 @@
             prevSceneData = null;
 
             $rootScope.$on('$locationChangeSuccess', updateRoute);
+
+            var goToHash = function () {
+                $log.debug('ssmRoute: checking for hash');
+                if ($location.hash()) {
+                    $log.debug('ssmRoute: hash found... scrolling to it now');
+                    $anchorScroll();
+                    $location.hash('');
+                }
+            };
+
+            $rootScope.$on('ssm:init', goToHash);
+
             return $route;
 
             function updateRoute() {
                 // only call anchor scroll if the hash isn't empty since we set it to empty after scrolling
-                if ($location.hash()) $anchorScroll();
-                $location.hash('');
+
                 if (lastPath == $location.path()) {
+                    goToHash();
                     return;  // early quit if the path hasn't changed.
                 } else {
                     lastPath = $location.path();
@@ -54,9 +66,12 @@
 
                 $rootScope.$broadcast('$routeChangeStart', sceneData, prevSceneData);
 
+
                 // transition to the new scene.
-                ssm.transitionTo(sceneData.scene+'Scene', sceneData);
+                ssm.transitionTo(sceneData.scene + 'Scene', sceneData);
                 
+                
+
                 $rootScope.$broadcast('$routeChangeSuccess', sceneData, prevSceneData);
                 prevSceneData = sceneData;
             }

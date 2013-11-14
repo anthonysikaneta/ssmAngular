@@ -1,11 +1,17 @@
 ﻿angular.module('ssmAngular', [])
-        .directive('ssmLayout', ['$compile', 'ssmRoute', 'ssmLayoutMan', function ($compile, $route, layoutManager) {
+        .directive('ssmLayout', ['$compile', 'ssmRoute', 'ssmLayoutMan', '$log', function ($compile, $route, layoutManager, $log) {
             return {
                 replace: true,
                 compile: function (tElement, tAttrs) {
                     return function (scope, element, attrs) {
                         layoutManager.setTemplateFunc = function (tpl) {
-                            element.html(tpl);
+                            var container = $(tpl);
+                            // add the ssm-init directive which guesstimates when Angular is finihsed processing directives and fires 'initialized'
+                            container.attr('ssm-init', '');
+                            element.html('');
+                            element.append(container);
+                            $log.debug('ssmLayout: element.contents() ->');
+                            $log.debug(element.contents());
                             $compile(element.contents())(scope);
                             return true; // right now this func is expected to return a promise or value (which gets converted to a promise)
                         };
@@ -52,6 +58,22 @@
                             link(lastScope);
                         }
                     };
+                }
+            };
+        }])
+        .directive('ssmInit', ['$rootScope', '$log', function($rootScope, $log) {
+            return {
+                restrict: 'ECA',
+                link: function($scope, $log) {
+                    var to;
+                    var listener = $scope.$watch(function() {
+                        clearTimeout(to);
+                        to = setTimeout(function () {
+                            console.debug('ssmInit: initialized');
+                            listener();
+                            $rootScope.$emit('ssm:init');
+                        }, 50);
+                    });
                 }
             };
         }])

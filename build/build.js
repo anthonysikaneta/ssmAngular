@@ -211,13 +211,19 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
         resolved[tplName] = d.promise;\r\n\
     }\r\n\
 ﻿angular.module('ssmAngular', [])\r\n\
-        .directive('ssmLayout', ['$compile', 'ssmRoute', 'ssmLayoutMan', function ($compile, $route, layoutManager) {\r\n\
+        .directive('ssmLayout', ['$compile', 'ssmRoute', 'ssmLayoutMan', '$log', function ($compile, $route, layoutManager, $log) {\r\n\
             return {\r\n\
                 replace: true,\r\n\
                 compile: function (tElement, tAttrs) {\r\n\
                     return function (scope, element, attrs) {\r\n\
                         layoutManager.setTemplateFunc = function (tpl) {\r\n\
-                            element.html(tpl);\r\n\
+                            var container = $(tpl);\r\n\
+                            // add the ssm-init directive which guesstimates when Angular is finihsed processing directives and fires 'initialized'\r\n\
+                            container.attr('ssm-init', '');\r\n\
+                            element.html('');\r\n\
+                            element.append(container);\r\n\
+                            $log.debug('ssmLayout: element.contents() ->');\r\n\
+                            $log.debug(element.contents());\r\n\
                             $compile(element.contents())(scope);\r\n\
                             return true; // right now this func is expected to return a promise or value (which gets converted to a promise)\r\n\
                         };\r\n\
@@ -264,6 +270,22 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
                             link(lastScope);\r\n\
                         }\r\n\
                     };\r\n\
+                }\r\n\
+            };\r\n\
+        }])\r\n\
+        .directive('ssmInit', ['$rootScope', '$log', function($rootScope, $log) {\r\n\
+            return {\r\n\
+                restrict: 'ECA',\r\n\
+                link: function($scope, $log) {\r\n\
+                    var to;\r\n\
+                    var listener = $scope.$watch(function() {\r\n\
+                        clearTimeout(to);\r\n\
+                        to = setTimeout(function () {\r\n\
+                            console.debug('ssmInit: initialized');\r\n\
+                            listener();\r\n\
+                            $rootScope.$emit('ssm:init');\r\n\
+                        }, 50);\r\n\
+                    });\r\n\
                 }\r\n\
             };\r\n\
         }])\r\n\
@@ -422,7 +444,7 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
           \r\n\
                 console.log('waiting for dependencies to resolve: ' + this.name);\r\n\
 \r\n\
-                layoutManager.setTemplate(this.layout)\r\n\
+                return layoutManager.setTemplate(this.layout)\r\n\
                     .then(function (slm) {\r\n\
                         // render viewTemplates in their respective view priorities.\r\n\
                         for (var viewName in that.config.viewPriorityMap) {\r\n\
@@ -556,17 +578,17 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
 \r\n\
                     var showScene = function () {\r\n\
                         nextScene = nextScene;\r\n\
-                        nextScene.show($rootScope, layoutManager);\r\n\
+                        return nextScene.show($rootScope, layoutManager);\r\n\
                     };\r\n\
 \r\n\
                     nextScene.resolveDependencies($q, $http, $templateCache, $injector);\r\n\
 \r\n\
                     if (!_currentScene) {\r\n\
-                        showScene();\r\n\
+                        return showScene();\r\n\
                     } else {\r\n\
                         // this lets the current scene know which scene we are going to\r\n\
-                        $q.when(_currentScene.transitionTo(nextScene)).then(function () {\r\n\
-                            showScene();\r\n\
+                        return $q.when(_currentScene.transitionTo(nextScene)).then(function () {\r\n\
+                            return showScene();\r\n\
                         });\r\n\
                     }\r\n\
                     //} else {\r\n\
@@ -592,8 +614,8 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
     */\r\n\
     function ssmUrlRouterProvider() {\r\n\
 \r\n\
-        this.$get = ['$rootScope', '$location', '$q', '$injector', 'ssm', 'ssmRouteTemplateMatcher', '$anchorScroll',\r\n\
-        function ($rootScope, $location, $q, $injector, ssm, routeParser, $anchorScroll) {\r\n\
+        this.$get = ['$rootScope', '$location', '$q', '$injector', 'ssm', 'ssmRouteTemplateMatcher', '$anchorScroll', '$log',\r\n\
+        function ($rootScope, $location, $q, $injector, ssm, routeParser, $anchorScroll, $log) {\r\n\
             var forceReload = false,\r\n\
             $route = {\r\n\
                 /**\r\n\
@@ -617,13 +639,25 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
             prevSceneData = null;\r\n\
 \r\n\
             $rootScope.$on('$locationChangeSuccess', updateRoute);\r\n\
+\r\n\
+            var goToHash = function () {\r\n\
+                $log.debug('ssmRoute: checking for hash');\r\n\
+                if ($location.hash()) {\r\n\
+                    $log.debug('ssmRoute: hash found... scrolling to it now');\r\n\
+                    $anchorScroll();\r\n\
+                    $location.hash('');\r\n\
+                }\r\n\
+            };\r\n\
+\r\n\
+            $rootScope.$on('ssm:init', goToHash);\r\n\
+\r\n\
             return $route;\r\n\
 \r\n\
             function updateRoute() {\r\n\
                 // only call anchor scroll if the hash isn't empty since we set it to empty after scrolling\r\n\
-                if ($location.hash()) $anchorScroll();\r\n\
-                $location.hash('');\r\n\
+\r\n\
                 if (lastPath == $location.path()) {\r\n\
+                    goToHash();\r\n\
                     return;  // early quit if the path hasn't changed.\r\n\
                 } else {\r\n\
                     lastPath = $location.path();\r\n\
@@ -633,9 +667,12 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
 \r\n\
                 $rootScope.$broadcast('$routeChangeStart', sceneData, prevSceneData);\r\n\
 \r\n\
+\r\n\
                 // transition to the new scene.\r\n\
-                ssm.transitionTo(sceneData.scene+'Scene', sceneData);\r\n\
+                ssm.transitionTo(sceneData.scene + 'Scene', sceneData);\r\n\
                 \r\n\
+                \r\n\
+\r\n\
                 $rootScope.$broadcast('$routeChangeSuccess', sceneData, prevSceneData);\r\n\
                 prevSceneData = sceneData;\r\n\
             }\r\n\

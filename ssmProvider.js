@@ -22,7 +22,7 @@
           
                 console.log('waiting for dependencies to resolve: ' + this.name);
 
-                layoutManager.setTemplate(this.layout)
+                return layoutManager.setTemplate(this.layout)
                     .then(function (slm) {
                         // render viewTemplates in their respective view priorities.
                         for (var viewName in that.config.viewPriorityMap) {
@@ -156,17 +156,17 @@
 
                     var showScene = function () {
                         nextScene = nextScene;
-                        nextScene.show($rootScope, layoutManager);
+                        return nextScene.show($rootScope, layoutManager);
                     };
 
                     nextScene.resolveDependencies($q, $http, $templateCache, $injector);
 
                     if (!_currentScene) {
-                        showScene();
+                        return showScene();
                     } else {
                         // this lets the current scene know which scene we are going to
-                        $q.when(_currentScene.transitionTo(nextScene)).then(function () {
-                            showScene();
+                        return $q.when(_currentScene.transitionTo(nextScene)).then(function () {
+                            return showScene();
                         });
                     }
                     //} else {
