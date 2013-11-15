@@ -91,9 +91,10 @@
             var dialogStack = [],
                 viewPortSlot = 100,
                 $body = $('body'),
-                $activeDialog = null,
+                activeDialog = null,
                 dialogTplUrl = '/Client/tpl/DialogTpl.html',
-                awaitDialogTpl = null; 
+                awaitDialogTpl = null,
+                dialogList = [];
 
             this.setDialogTpl = function (dialogTpl) {
 
@@ -106,11 +107,21 @@
                     },
                     pushDialog: function (view) {
                         var that = this;
-                        var c = $body.find('[ssm-dialog="true"]');
-                        if (c.length > 0) {
-                            $activeDialog.modal('hide');
-                            dialogStack.push(c.detach());
+                        if (activeDialog) {
+                            activeDialog.hide();
+                            dialogStack.push(activeDialog);
+                            activeDialog = null;
                         }
+
+                        var dialog = _.find(dialogList, function (d) {
+                            return d.view === view;
+                        });
+
+                        if (dialog) {
+                            dialog.show();
+                            return;
+                        }
+
                         $q.when(view.template).then(function (template) {
                             awaitDialogTpl.then(function (dialogHtml) {
                                 var $dialog = $(dialogHtml.data);
@@ -118,36 +129,60 @@
                                 // get the outerHTML by appending it to a div first, cause html() only returns inner.
                                 view.template = $('<div />').append($dialog).html(); 
 
-                                var vp = $('<div ssm-Viewport visual-Priority="' + (viewPortSlot++) + '" ssm-Dialog="true"></div>');
+                                var vp = $('<div ssm-Viewport visual-Priority="' + (viewPortSlot++) + '" ssm-dialog="true"></div>');
                                 $body.append(vp);
                                 $compile(vp)($rootScope.$new());
                                 layoutManager.addView(view, viewPortSlot - 1).then(function () {
-                                    $activeDialog = $body.find('[ssm-dialog="true"] .modal');
-                                    $activeDialog.modal({});
-                                    $activeDialog.on('hidden.bs.modal', function () {
+                                    $element = $body.find('[visual-Priority="' + (viewPortSlot-1) + '"] .modal');
+
+                                    $element.modal({});
+
+                                    $element.on('hidden.bs.modal', function () {
                                         that.popDialog();
                                     });
-                                    // restore the template back to normal.
+                                    // restore the template back to normal. (non dialog encumbered)
                                     view.template = template;
-                                });
 
+                                    activeDialog = {
+                                        $element: $element,
+                                        vpId: viewPortSlot - 1,
+                                        vp: vp,
+                                        view: view,
+                                        hide: function () {
+                                            this.$element.modal('hide');
+                                        },
+                                        show: function () {
+                                            this.$element.modal('show');
+                                        },
+                                        destroy: function () {
+                                            this.$element.modal('hide');
+                                            // cannot destroy it until the modal fade transition is finished 
+                                            // (otherwise it will cause the backdrop to remain behind)
+                                            //setTimeout(layoutManager.viewPorts[this.vpId].destroy, 550);
+                                            //$('body').removeClass('modal-open');
+                                            //$('.modal-backdrop').remove();
+                                        }
+                                    };
+
+                                    dialogList.push(activeDialog);
+                                });
                             });
                         });
                     },
                     popDialog: function () {
-                        var c = $body.find('[ssm-dialog="true"]');
-                        if (c.length > 0) {
-                            $activeDialog.modal('hide');
-                            c.remove();
+                        if (activeDialog != null) {
+                            activeDialog.destroy();
+                            activeDialog = null;
                         }
                         if (dialogStack.length > 0) {
-                            var p = dialogStack.pop();
-                            $body.append(p);
-                            $activeDialog = p.find('.modal');
-                            $activeDialog.modal('show');
+                            activeDialog = dialogStack.pop();
+                            activeDialog.show();
                             return true; 
                         }
                         return false;
+                    },
+                    closeAll: function () {
+                        while (this.popDialog());
                     }
                 };
             }];
@@ -340,13 +375,21 @@
             scene.layouts = scene.config.layouts;
             if (scene.config.dialogs) {
                 _.forEach(scene.config.dialogs, function (dialog) {
-                    that.addView(dialog.view, null, {
-                        locals: {
-                            Title: dialog.title,
-                            Continue: dialog.dialogContinueButtonTxt,
-                            Back: dialog.dialogBackButtonTxt
-                        }
-                    });
+                    var dialogLocals = {
+                        Title: dialog.title,
+                        Continue: dialog.dialogContinueButtonTxt,
+                        Back: dialog.dialogBackButtonTxt,
+                        NoFooter: dialog.noFooter
+                    };
+
+                    if (viewDefinitions[dialog.view]) {
+                        viewDefinitions[dialog.view].locals = angular.extend(viewDefinitions[dialog.view].locals, dialogLocals);
+                    } else {
+                        that.addView(dialog.view, null, {
+                            locals: dialogLocals
+                        });
+                    }
+
                     scene.views[dialog.view] = angular.copy(viewDefinitions[dialog.view]);
                 });
             }
@@ -412,8 +455,8 @@
     */
     function ssmUrlRouterProvider() {
 
-        this.$get = ['$rootScope', '$location', '$q', '$injector', 'ssm', 'ssmRouteTemplateMatcher', '$anchorScroll', '$log',
-        function ($rootScope, $location, $q, $injector, ssm, routeParser, $anchorScroll, $log) {
+        this.$get = ['$rootScope', '$location', '$q', 'ssm', 'ssmRouteTemplateMatcher', 'ssmDialogSvc', '$anchorScroll', '$log',
+        function ($rootScope, $location, $q, ssm, routeParser, ssmDialogSvc, $anchorScroll, $log) {
             var forceReload = false,
             $route = {
                 /**
@@ -440,6 +483,7 @@
 
             var goToHash = function () {
                 $log.debug('ssmRoute: checking for hash');
+                // only call anchor scroll if the hash isn't empty since we set it to empty after scrolling
                 if ($location.hash()) {
                     $log.debug('ssmRoute: hash found... scrolling to it now');
                     $anchorScroll();
@@ -452,7 +496,8 @@
             return $route;
 
             function updateRoute() {
-                // only call anchor scroll if the hash isn't empty since we set it to empty after scrolling
+                
+                ssmDialogSvc.closeAll();
 
                 if (lastPath == $location.path()) {
                     goToHash();
@@ -465,11 +510,8 @@
 
                 $rootScope.$broadcast('$routeChangeStart', sceneData, prevSceneData);
 
-
                 // transition to the new scene.
                 ssm.transitionTo(sceneData.scene + 'Scene', sceneData);
-                
-                
 
                 $rootScope.$broadcast('$routeChangeSuccess', sceneData, prevSceneData);
                 prevSceneData = sceneData;

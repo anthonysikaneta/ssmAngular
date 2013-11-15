@@ -13,8 +13,8 @@
     */
     function ssmUrlRouterProvider() {
 
-        this.$get = ['$rootScope', '$location', '$q', '$injector', 'ssm', 'ssmRouteTemplateMatcher', '$anchorScroll', '$log',
-        function ($rootScope, $location, $q, $injector, ssm, routeParser, $anchorScroll, $log) {
+        this.$get = ['$rootScope', '$location', '$q', 'ssm', 'ssmRouteTemplateMatcher', 'ssmDialogSvc', '$anchorScroll', '$log',
+        function ($rootScope, $location, $q, ssm, routeParser, ssmDialogSvc, $anchorScroll, $log) {
             var forceReload = false,
             $route = {
                 /**
@@ -41,6 +41,7 @@
 
             var goToHash = function () {
                 $log.debug('ssmRoute: checking for hash');
+                // only call anchor scroll if the hash isn't empty since we set it to empty after scrolling
                 if ($location.hash()) {
                     $log.debug('ssmRoute: hash found... scrolling to it now');
                     $anchorScroll();
@@ -53,7 +54,8 @@
             return $route;
 
             function updateRoute() {
-                // only call anchor scroll if the hash isn't empty since we set it to empty after scrolling
+                
+                ssmDialogSvc.closeAll();
 
                 if (lastPath == $location.path()) {
                     goToHash();
@@ -66,11 +68,8 @@
 
                 $rootScope.$broadcast('$routeChangeStart', sceneData, prevSceneData);
 
-
                 // transition to the new scene.
                 ssm.transitionTo(sceneData.scene + 'Scene', sceneData);
-                
-                
 
                 $rootScope.$broadcast('$routeChangeSuccess', sceneData, prevSceneData);
                 prevSceneData = sceneData;

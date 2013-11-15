@@ -120,13 +120,21 @@
             scene.layouts = scene.config.layouts;
             if (scene.config.dialogs) {
                 _.forEach(scene.config.dialogs, function (dialog) {
-                    that.addView(dialog.view, null, {
-                        locals: {
-                            Title: dialog.title,
-                            Continue: dialog.dialogContinueButtonTxt,
-                            Back: dialog.dialogBackButtonTxt
-                        }
-                    });
+                    var dialogLocals = {
+                        Title: dialog.title,
+                        Continue: dialog.dialogContinueButtonTxt,
+                        Back: dialog.dialogBackButtonTxt,
+                        NoFooter: dialog.noFooter
+                    };
+
+                    if (viewDefinitions[dialog.view]) {
+                        viewDefinitions[dialog.view].locals = angular.extend(viewDefinitions[dialog.view].locals, dialogLocals);
+                    } else {
+                        that.addView(dialog.view, null, {
+                            locals: dialogLocals
+                        });
+                    }
+
                     scene.views[dialog.view] = angular.copy(viewDefinitions[dialog.view]);
                 });
             }

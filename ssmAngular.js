@@ -81,9 +81,10 @@
             var dialogStack = [],
                 viewPortSlot = 100,
                 $body = $('body'),
-                $activeDialog = null,
+                activeDialog = null,
                 dialogTplUrl = '/Client/tpl/DialogTpl.html',
-                awaitDialogTpl = null; 
+                awaitDialogTpl = null,
+                dialogList = [];
 
             this.setDialogTpl = function (dialogTpl) {
 
@@ -96,11 +97,21 @@
                     },
                     pushDialog: function (view) {
                         var that = this;
-                        var c = $body.find('[ssm-dialog="true"]');
-                        if (c.length > 0) {
-                            $activeDialog.modal('hide');
-                            dialogStack.push(c.detach());
+                        if (activeDialog) {
+                            activeDialog.hide();
+                            dialogStack.push(activeDialog);
+                            activeDialog = null;
                         }
+
+                        var dialog = _.find(dialogList, function (d) {
+                            return d.view === view;
+                        });
+
+                        if (dialog) {
+                            dialog.show();
+                            return;
+                        }
+
                         $q.when(view.template).then(function (template) {
                             awaitDialogTpl.then(function (dialogHtml) {
                                 var $dialog = $(dialogHtml.data);
@@ -108,36 +119,60 @@
                                 // get the outerHTML by appending it to a div first, cause html() only returns inner.
                                 view.template = $('<div />').append($dialog).html(); 
 
-                                var vp = $('<div ssm-Viewport visual-Priority="' + (viewPortSlot++) + '" ssm-Dialog="true"></div>');
+                                var vp = $('<div ssm-Viewport visual-Priority="' + (viewPortSlot++) + '" ssm-dialog="true"></div>');
                                 $body.append(vp);
                                 $compile(vp)($rootScope.$new());
                                 layoutManager.addView(view, viewPortSlot - 1).then(function () {
-                                    $activeDialog = $body.find('[ssm-dialog="true"] .modal');
-                                    $activeDialog.modal({});
-                                    $activeDialog.on('hidden.bs.modal', function () {
+                                    $element = $body.find('[visual-Priority="' + (viewPortSlot-1) + '"] .modal');
+
+                                    $element.modal({});
+
+                                    $element.on('hidden.bs.modal', function () {
                                         that.popDialog();
                                     });
-                                    // restore the template back to normal.
+                                    // restore the template back to normal. (non dialog encumbered)
                                     view.template = template;
-                                });
 
+                                    activeDialog = {
+                                        $element: $element,
+                                        vpId: viewPortSlot - 1,
+                                        vp: vp,
+                                        view: view,
+                                        hide: function () {
+                                            this.$element.modal('hide');
+                                        },
+                                        show: function () {
+                                            this.$element.modal('show');
+                                        },
+                                        destroy: function () {
+                                            this.$element.modal('hide');
+                                            // cannot destroy it until the modal fade transition is finished 
+                                            // (otherwise it will cause the backdrop to remain behind)
+                                            //setTimeout(layoutManager.viewPorts[this.vpId].destroy, 550);
+                                            //$('body').removeClass('modal-open');
+                                            //$('.modal-backdrop').remove();
+                                        }
+                                    };
+
+                                    dialogList.push(activeDialog);
+                                });
                             });
                         });
                     },
                     popDialog: function () {
-                        var c = $body.find('[ssm-dialog="true"]');
-                        if (c.length > 0) {
-                            $activeDialog.modal('hide');
-                            c.remove();
+                        if (activeDialog != null) {
+                            activeDialog.destroy();
+                            activeDialog = null;
                         }
                         if (dialogStack.length > 0) {
-                            var p = dialogStack.pop();
-                            $body.append(p);
-                            $activeDialog = p.find('.modal');
-                            $activeDialog.modal('show');
+                            activeDialog = dialogStack.pop();
+                            activeDialog.show();
                             return true; 
                         }
                         return false;
+                    },
+                    closeAll: function () {
+                        while (this.popDialog());
                     }
                 };
             }];

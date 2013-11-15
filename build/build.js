@@ -293,9 +293,10 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
             var dialogStack = [],\r\n\
                 viewPortSlot = 100,\r\n\
                 $body = $('body'),\r\n\
-                $activeDialog = null,\r\n\
+                activeDialog = null,\r\n\
                 dialogTplUrl = '/Client/tpl/DialogTpl.html',\r\n\
-                awaitDialogTpl = null; \r\n\
+                awaitDialogTpl = null,\r\n\
+                dialogList = [];\r\n\
 \r\n\
             this.setDialogTpl = function (dialogTpl) {\r\n\
 \r\n\
@@ -308,11 +309,21 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
                     },\r\n\
                     pushDialog: function (view) {\r\n\
                         var that = this;\r\n\
-                        var c = $body.find('[ssm-dialog=\"true\"]');\r\n\
-                        if (c.length > 0) {\r\n\
-                            $activeDialog.modal('hide');\r\n\
-                            dialogStack.push(c.detach());\r\n\
+                        if (activeDialog) {\r\n\
+                            activeDialog.hide();\r\n\
+                            dialogStack.push(activeDialog);\r\n\
+                            activeDialog = null;\r\n\
                         }\r\n\
+\r\n\
+                        var dialog = _.find(dialogList, function (d) {\r\n\
+                            return d.view === view;\r\n\
+                        });\r\n\
+\r\n\
+                        if (dialog) {\r\n\
+                            dialog.show();\r\n\
+                            return;\r\n\
+                        }\r\n\
+\r\n\
                         $q.when(view.template).then(function (template) {\r\n\
                             awaitDialogTpl.then(function (dialogHtml) {\r\n\
                                 var $dialog = $(dialogHtml.data);\r\n\
@@ -320,36 +331,60 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
                                 // get the outerHTML by appending it to a div first, cause html() only returns inner.\r\n\
                                 view.template = $('<div />').append($dialog).html(); \r\n\
 \r\n\
-                                var vp = $('<div ssm-Viewport visual-Priority=\"' + (viewPortSlot++) + '\" ssm-Dialog=\"true\"></div>');\r\n\
+                                var vp = $('<div ssm-Viewport visual-Priority=\"' + (viewPortSlot++) + '\" ssm-dialog=\"true\"></div>');\r\n\
                                 $body.append(vp);\r\n\
                                 $compile(vp)($rootScope.$new());\r\n\
                                 layoutManager.addView(view, viewPortSlot - 1).then(function () {\r\n\
-                                    $activeDialog = $body.find('[ssm-dialog=\"true\"] .modal');\r\n\
-                                    $activeDialog.modal({});\r\n\
-                                    $activeDialog.on('hidden.bs.modal', function () {\r\n\
+                                    $element = $body.find('[visual-Priority=\"' + (viewPortSlot-1) + '\"] .modal');\r\n\
+\r\n\
+                                    $element.modal({});\r\n\
+\r\n\
+                                    $element.on('hidden.bs.modal', function () {\r\n\
                                         that.popDialog();\r\n\
                                     });\r\n\
-                                    // restore the template back to normal.\r\n\
+                                    // restore the template back to normal. (non dialog encumbered)\r\n\
                                     view.template = template;\r\n\
-                                });\r\n\
 \r\n\
+                                    activeDialog = {\r\n\
+                                        $element: $element,\r\n\
+                                        vpId: viewPortSlot - 1,\r\n\
+                                        vp: vp,\r\n\
+                                        view: view,\r\n\
+                                        hide: function () {\r\n\
+                                            this.$element.modal('hide');\r\n\
+                                        },\r\n\
+                                        show: function () {\r\n\
+                                            this.$element.modal('show');\r\n\
+                                        },\r\n\
+                                        destroy: function () {\r\n\
+                                            this.$element.modal('hide');\r\n\
+                                            // cannot destroy it until the modal fade transition is finished \r\n\
+                                            // (otherwise it will cause the backdrop to remain behind)\r\n\
+                                            //setTimeout(layoutManager.viewPorts[this.vpId].destroy, 550);\r\n\
+                                            //$('body').removeClass('modal-open');\r\n\
+                                            //$('.modal-backdrop').remove();\r\n\
+                                        }\r\n\
+                                    };\r\n\
+\r\n\
+                                    dialogList.push(activeDialog);\r\n\
+                                });\r\n\
                             });\r\n\
                         });\r\n\
                     },\r\n\
                     popDialog: function () {\r\n\
-                        var c = $body.find('[ssm-dialog=\"true\"]');\r\n\
-                        if (c.length > 0) {\r\n\
-                            $activeDialog.modal('hide');\r\n\
-                            c.remove();\r\n\
+                        if (activeDialog != null) {\r\n\
+                            activeDialog.destroy();\r\n\
+                            activeDialog = null;\r\n\
                         }\r\n\
                         if (dialogStack.length > 0) {\r\n\
-                            var p = dialogStack.pop();\r\n\
-                            $body.append(p);\r\n\
-                            $activeDialog = p.find('.modal');\r\n\
-                            $activeDialog.modal('show');\r\n\
+                            activeDialog = dialogStack.pop();\r\n\
+                            activeDialog.show();\r\n\
                             return true; \r\n\
                         }\r\n\
                         return false;\r\n\
+                    },\r\n\
+                    closeAll: function () {\r\n\
+                        while (this.popDialog());\r\n\
                     }\r\n\
                 };\r\n\
             }];\r\n\
@@ -542,13 +577,21 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
             scene.layouts = scene.config.layouts;\r\n\
             if (scene.config.dialogs) {\r\n\
                 _.forEach(scene.config.dialogs, function (dialog) {\r\n\
-                    that.addView(dialog.view, null, {\r\n\
-                        locals: {\r\n\
-                            Title: dialog.title,\r\n\
-                            Continue: dialog.dialogContinueButtonTxt,\r\n\
-                            Back: dialog.dialogBackButtonTxt\r\n\
-                        }\r\n\
-                    });\r\n\
+                    var dialogLocals = {\r\n\
+                        Title: dialog.title,\r\n\
+                        Continue: dialog.dialogContinueButtonTxt,\r\n\
+                        Back: dialog.dialogBackButtonTxt,\r\n\
+                        NoFooter: dialog.noFooter\r\n\
+                    };\r\n\
+\r\n\
+                    if (viewDefinitions[dialog.view]) {\r\n\
+                        viewDefinitions[dialog.view].locals = angular.extend(viewDefinitions[dialog.view].locals, dialogLocals);\r\n\
+                    } else {\r\n\
+                        that.addView(dialog.view, null, {\r\n\
+                            locals: dialogLocals\r\n\
+                        });\r\n\
+                    }\r\n\
+\r\n\
                     scene.views[dialog.view] = angular.copy(viewDefinitions[dialog.view]);\r\n\
                 });\r\n\
             }\r\n\
@@ -614,8 +657,8 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
     */\r\n\
     function ssmUrlRouterProvider() {\r\n\
 \r\n\
-        this.$get = ['$rootScope', '$location', '$q', '$injector', 'ssm', 'ssmRouteTemplateMatcher', '$anchorScroll', '$log',\r\n\
-        function ($rootScope, $location, $q, $injector, ssm, routeParser, $anchorScroll, $log) {\r\n\
+        this.$get = ['$rootScope', '$location', '$q', 'ssm', 'ssmRouteTemplateMatcher', 'ssmDialogSvc', '$anchorScroll', '$log',\r\n\
+        function ($rootScope, $location, $q, ssm, routeParser, ssmDialogSvc, $anchorScroll, $log) {\r\n\
             var forceReload = false,\r\n\
             $route = {\r\n\
                 /**\r\n\
@@ -642,6 +685,7 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
 \r\n\
             var goToHash = function () {\r\n\
                 $log.debug('ssmRoute: checking for hash');\r\n\
+                // only call anchor scroll if the hash isn't empty since we set it to empty after scrolling\r\n\
                 if ($location.hash()) {\r\n\
                     $log.debug('ssmRoute: hash found... scrolling to it now');\r\n\
                     $anchorScroll();\r\n\
@@ -654,7 +698,8 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
             return $route;\r\n\
 \r\n\
             function updateRoute() {\r\n\
-                // only call anchor scroll if the hash isn't empty since we set it to empty after scrolling\r\n\
+                \r\n\
+                ssmDialogSvc.closeAll();\r\n\
 \r\n\
                 if (lastPath == $location.path()) {\r\n\
                     goToHash();\r\n\
@@ -667,11 +712,8 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
 \r\n\
                 $rootScope.$broadcast('$routeChangeStart', sceneData, prevSceneData);\r\n\
 \r\n\
-\r\n\
                 // transition to the new scene.\r\n\
                 ssm.transitionTo(sceneData.scene + 'Scene', sceneData);\r\n\
-                \r\n\
-                \r\n\
 \r\n\
                 $rootScope.$broadcast('$routeChangeSuccess', sceneData, prevSceneData);\r\n\
                 prevSceneData = sceneData;\r\n\
