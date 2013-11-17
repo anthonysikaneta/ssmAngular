@@ -71,7 +71,7 @@
                 // transition to the new scene.
                 ssm.transitionTo(sceneData.scene + 'Scene', sceneData);
 
-                $rootScope.$broadcast('$routeChangeSuccess', sceneData, prevSceneData);
+                $rootScope.$broadcast('$routeChangeSuccess', $location.path());
                 prevSceneData = sceneData;
             }
         }];

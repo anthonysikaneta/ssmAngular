@@ -715,7 +715,7 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
                 // transition to the new scene.\r\n\
                 ssm.transitionTo(sceneData.scene + 'Scene', sceneData);\r\n\
 \r\n\
-                $rootScope.$broadcast('$routeChangeSuccess', sceneData, prevSceneData);\r\n\
+                $rootScope.$broadcast('$routeChangeSuccess', $location.path());\r\n\
                 prevSceneData = sceneData;\r\n\
             }\r\n\
         }];\r\n\
