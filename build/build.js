@@ -484,15 +484,17 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
                         // render viewTemplates in their respective view priorities.\r\n\
                         for (var viewName in that.config.viewPriorityMap) {\r\n\
                             if (!that.config.viewPriorityMap.hasOwnProperty(viewName)) continue;\r\n\
-                            \r\n\
-                            var f = function (vw) {\r\n\
+                            var actualViewName = viewName.replace('_', '');\r\n\
+                            var f = function (vw, viewName) {\r\n\
                                 that.waitForDepsToResolve.then(function () {\r\n\
-                                    console.log('dependencies have resolved: ' + that.name);\r\n\
-                                    that.views[vw].template = viewDefinitions[vw.replace('_', '')].template;\r\n\
-                                    slm.addView(that.views[vw], that.config.viewPriorityMap[vw]);\r\n\
+                                    console.debug('dependencies have resolved: ' + that.name);\r\n\
+                                    console.debug('view: ' + vw);\r\n\
+                                    console.debug(viewDefinitions);\r\n\
+                                    that.views[vw].template = viewDefinitions[vw].template;\r\n\
+                                    slm.addView(that.views[vw], that.config.viewPriorityMap[viewName]);\r\n\
                                 });\r\n\
                             };\r\n\
-                            f(viewName); // need a closure around viewName so the async then function is invoked with the current value of viewName\r\n\
+                            f(actualViewName, viewName); // need a closure around viewName so the async then function is invoked with the current value of viewName\r\n\
                         }\r\n\
                     });\r\n\
 \r\n\
@@ -571,7 +573,7 @@ require.register("ssmAngular/index.js", Function("exports, require, module",
                 var actualViewName = viewName.replace('_', '');\r\n\
                 // when choosing a view whatever access the views collection must be aware that underscores need\r\n\
                 // to be stripped in viewName.  This is to support having many of the same view in the same scene.\r\n\
-                scene.views[viewName] = angular.extend({}, viewDefinitions[actualViewName]);\r\n\
+                scene.views[actualViewName] = angular.extend({}, viewDefinitions[actualViewName]);\r\n\
             }\r\n\
             scene.layout = scene.config.layouts[0];\r\n\
             scene.layouts = scene.config.layouts;\r\n\

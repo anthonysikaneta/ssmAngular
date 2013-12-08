@@ -27,15 +27,17 @@
                         // render viewTemplates in their respective view priorities.
                         for (var viewName in that.config.viewPriorityMap) {
                             if (!that.config.viewPriorityMap.hasOwnProperty(viewName)) continue;
-                            
-                            var f = function (vw) {
+                            var actualViewName = viewName.replace('_', '');
+                            var f = function (vw, viewName) {
                                 that.waitForDepsToResolve.then(function () {
-                                    console.log('dependencies have resolved: ' + that.name);
-                                    that.views[vw].template = viewDefinitions[vw.replace('_', '')].template;
-                                    slm.addView(that.views[vw], that.config.viewPriorityMap[vw]);
+                                    console.debug('dependencies have resolved: ' + that.name);
+                                    console.debug('view: ' + vw);
+                                    console.debug(viewDefinitions);
+                                    that.views[vw].template = viewDefinitions[vw].template;
+                                    slm.addView(that.views[vw], that.config.viewPriorityMap[viewName]);
                                 });
                             };
-                            f(viewName); // need a closure around viewName so the async then function is invoked with the current value of viewName
+                            f(actualViewName, viewName); // need a closure around viewName so the async then function is invoked with the current value of viewName
                         }
                     });
 
@@ -114,7 +116,7 @@
                 var actualViewName = viewName.replace('_', '');
                 // when choosing a view whatever access the views collection must be aware that underscores need
                 // to be stripped in viewName.  This is to support having many of the same view in the same scene.
-                scene.views[viewName] = angular.extend({}, viewDefinitions[actualViewName]);
+                scene.views[actualViewName] = angular.extend({}, viewDefinitions[actualViewName]);
             }
             scene.layout = scene.config.layouts[0];
             scene.layouts = scene.config.layouts;
